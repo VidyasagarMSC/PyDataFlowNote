@@ -1,6 +1,4 @@
 # PyDataFlowNote
-> :construction: Work-in-progress... 
-
 > :star: & Watch this repository for updates
 
 
@@ -10,5 +8,5 @@ As I explore Python libraries....This name combines elements from Python (Py), d
 |---|---------------|---------|
 | [Norm-1D](https://github.com/VidyasagarMSC/PyDataFlowNote/blob/main/linear-algebra/norm-1D.ipynb)  | <a target="_blank" href="https://colab.research.google.com/github/VidyasagarMSC/PyDataFlowNote/blob/main/linear-algebra/norm-1D.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [DZone](https://dzone.com/articles/norm-of-a-one-dimensional-tensor-in-python-libraries)
 | [SymPy](https://github.com/VidyasagarMSC/PyDataFlowNote/blob/main/sympy/intro.ipynb)  | <a target="_blank" href="https://colab.research.google.com/github/VidyasagarMSC/PyDataFlowNote/blob/main/sympy/intro.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-| [Data processing libraries benchmarking and comparison](https://github.com/VidyasagarMSC/PyDataFlowNote/blob/main/data_processing/libraries.ipynb)  | <a target="_blank" href="https://colab.research.google.com/github/VidyasagarMSC/PyDataFlowNote/blob/main/data_processing/libraries.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+| [Data processing libraries benchmarking and comparison](https://github.com/VidyasagarMSC/PyDataFlowNote/blob/main/data_processing/libraries.ipynb)  | <a target="_blank" href="https://colab.research.google.com/github/VidyasagarMSC/PyDataFlowNote/blob/main/data_processing/libraries.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/> | [DZone](https://dzone.com/articles/modern-data-processing-libraries-beyond-pandas)
 </a>                      |
