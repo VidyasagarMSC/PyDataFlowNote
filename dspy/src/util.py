@@ -10,6 +10,22 @@ import hashlib
 from typing import Any, Dict, List
 from datetime import datetime
 
+# Handle Logfire import
+try:
+    try:
+        from .logfire_setup import get_logfire_manager, logfire_span
+    except ImportError:
+        from logfire_setup import get_logfire_manager, logfire_span
+    logfire_manager = get_logfire_manager()
+    LOGFIRE_AVAILABLE = True
+except ImportError:
+    logfire_manager = None
+    LOGFIRE_AVAILABLE = False
+    def logfire_span(name, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 
 def create_request_id(prefix: str = "req") -> str:
     """Create unique request ID."""
@@ -92,9 +108,13 @@ def format_response(success: bool, data: Any = None, error: str = None) -> Dict[
 
 
 # Sample data loading functions
+@logfire_span("load_sample_data", component="util")
 def load_sample_data(file_path: str = "data/sample_data.json") -> Dict[str, Any]:
-    """Load sample data from JSON file."""
+    """Load sample data from JSON file with Logfire monitoring."""
     import os
+    
+    if LOGFIRE_AVAILABLE:
+        logfire_manager.log_event("Loading sample data", "info", file_path=file_path)
     
     # Try different paths if file not found
     possible_paths = [
@@ -106,14 +126,23 @@ def load_sample_data(file_path: str = "data/sample_data.json") -> Dict[str, Any]
     for path in possible_paths:
         try:
             with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                if LOGFIRE_AVAILABLE:
+                    logfire_manager.log_event("Sample data loaded successfully", "info", 
+                                            path=path, 
+                                            data_size=len(json.dumps(data)))
+                return data
         except FileNotFoundError:
             continue
         except Exception as e:
+            if LOGFIRE_AVAILABLE:
+                logfire_manager.log_error(e, f"Error loading sample data from {path}")
             print(f"Error loading sample data from {path}: {e}")
             continue
     
     # Return default data if file not found
+    if LOGFIRE_AVAILABLE:
+        logfire_manager.log_event("Using default sample data", "warning", file_path=file_path)
     return get_default_sample_data()
 
 
@@ -145,12 +174,17 @@ def get_default_sample_data() -> Dict[str, Any]:
     }
 
 
+@logfire_span("create_training_examples", component="util")
 def create_training_examples(sample_data: Dict[str, Any] = None):
-    """Create DSPy training examples from sample data."""
+    """Create DSPy training examples from sample data with Logfire monitoring."""
     import dspy
     
     if sample_data is None:
         sample_data = load_sample_data()
+    
+    if LOGFIRE_AVAILABLE:
+        logfire_manager.log_event("Creating training examples", "info", 
+                                 has_sample_data=sample_data is not None)
     
     examples = []
     for item in sample_data.get('training_examples', []):
@@ -168,16 +202,26 @@ def create_training_examples(sample_data: Dict[str, Any] = None):
         ).with_inputs('question')
         examples.append(example)
     
+    if LOGFIRE_AVAILABLE:
+        logfire_manager.log_event("Training examples created", "info", 
+                                 example_count=len(examples))
+    
     return examples
 
 
+@logfire_span("simple_metric", component="util")
 def simple_metric(example, pred, trace=None) -> float:
-    """Simple evaluation metric for DSPy optimization."""
+    """Simple evaluation metric for DSPy optimization with Logfire monitoring."""
     if not hasattr(pred, 'answer') or not pred.answer:
+        if LOGFIRE_AVAILABLE:
+            logfire_manager.log_event("Metric evaluation: no answer", "debug", score=0.0)
         return 0.0
     
     answer = pred.answer.strip()
     if len(answer) < 10:
+        if LOGFIRE_AVAILABLE:
+            logfire_manager.log_event("Metric evaluation: answer too short", "debug", 
+                                     answer_length=len(answer), score=0.0)
         return 0.0
     
     # Check if answer contains any relevant terms from question
@@ -185,9 +229,17 @@ def simple_metric(example, pred, trace=None) -> float:
     answer_terms = set(extract_key_terms(answer))
     
     if question_terms.intersection(answer_terms):
-        return 1.0
+        score = 1.0
+    else:
+        score = 0.5  # Partial credit for reasonable length
     
-    return 0.5  # Partial credit for reasonable length
+    if LOGFIRE_AVAILABLE:
+        logfire_manager.log_event("Metric evaluation completed", "debug", 
+                                 score=score,
+                                 answer_length=len(answer),
+                                 has_common_terms=bool(question_terms.intersection(answer_terms)))
+    
+    return score
 
 
 def get_test_cases(sample_data: Dict[str, Any] = None) -> List[Dict[str, Any]]:

@@ -6,10 +6,19 @@ import time
 from typing import Dict, Any, List, Optional
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from .dspy_setup import setup_dspy_basic
+# Handle both module import and direct script execution
+try:
+    from .dspy_setup import setup_dspy_basic
+    from .logfire_setup import get_logfire_manager, logfire_span, logfire_log
+except ImportError:
+    from dspy_setup import setup_dspy_basic
+    from logfire_setup import get_logfire_manager, logfire_span, logfire_log
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize Logfire manager
+logfire_manager = get_logfire_manager()
 
 
 @dataclass
@@ -29,7 +38,7 @@ class BasicQA(dspy.Signature):
 
 
 class ResilientQAPipeline(dspy.Module):
-    """QA Pipeline with error handling."""
+    """QA Pipeline with error handling and Logfire monitoring."""
     
     def __init__(self, max_retries: int = 3):
         super().__init__()
@@ -37,9 +46,13 @@ class ResilientQAPipeline(dspy.Module):
         self.fallback_qa = dspy.Predict(BasicQA)
         self.max_retries = max_retries
         self.metrics = PipelineMetrics()
+        logfire_manager.log_event("ResilientQA pipeline initialized", "info", component="resilient_qa_pipeline")
     
+    @logfire_span("resilient_qa_forward", component="advanced_patterns")
     def forward(self, context: str, question: str) -> dspy.Prediction:
         """Process question with retries."""
+        logfire_manager.log_event("Processing question with ResilientQA", "info", question=question[:100], context_length=len(context), max_retries=self.max_retries)
+        
         for attempt in range(self.max_retries):
             try:
                 self.metrics.total_calls += 1
@@ -54,6 +67,8 @@ class ResilientQAPipeline(dspy.Module):
                     self.metrics.total_latency += latency
                     self.metrics.average_latency = self.metrics.total_latency / self.metrics.successful_calls
                     
+                    logfire_manager.log_event("Successful answer processed", "info", attempt=attempt, latency=latency)
+                    
                     return dspy.Prediction(
                         answer=result.answer,
                         confidence=1.0 - (attempt * 0.2),
@@ -62,6 +77,7 @@ class ResilientQAPipeline(dspy.Module):
                     )
                     
             except Exception as e:
+                logfire_manager.log_error(e, "Error processing question", attempt=attempt)
                 if attempt == self.max_retries - 1:
                     self.metrics.failed_calls += 1
                     return dspy.Prediction(
@@ -97,7 +113,7 @@ class ResilientQAPipeline(dspy.Module):
         }
 
 class CachedRAGPipeline(dspy.Module):
-    """RAG Pipeline with caching."""
+    """RAG Pipeline with caching and Logfire monitoring."""
     
     def __init__(self, cache_size: int = 100):
         super().__init__()
@@ -106,24 +122,35 @@ class CachedRAGPipeline(dspy.Module):
         self.cache_size = cache_size
         self.cache_hits = 0
         self.cache_misses = 0
+        logfire_manager.log_event("CachedRAG pipeline initialized", "info", component="cached_rag_pipeline", cache_size=cache_size)
     
+    @logfire_span("cached_rag_forward", component="advanced_patterns")
     def forward(self, question: str, context: Optional[str] = None) -> dspy.Prediction:
         """Process question with caching."""
         context = context or "General knowledge about technology and AI."
         cache_key = self._create_cache_key(question, context)
         
+        logfire_manager.log_event("Processing cached RAG query", "info", question=question[:100], has_context=context is not None)
+        
         if cache_key in self._cache:
             self.cache_hits += 1
             result = self._cache[cache_key]
             result.from_cache = True
+            logfire_manager.log_event("Cache hit", "info", cache_hits=self.cache_hits, hit_rate=self.cache_hits/(self.cache_hits + self.cache_misses))
             return result
         
         self.cache_misses += 1
+        logfire_manager.log_event("Cache miss - processing new query", "info", cache_misses=self.cache_misses)
+        
+        start_time = time.time()
         result = self.qa_pipeline(context=context, question=question)
+        processing_time = time.time() - start_time
         
         self._manage_cache_size()
         self._cache[cache_key] = result
         result.from_cache = False
+        
+        logfire_manager.log_event("Query processed and cached", "info", processing_time=processing_time, cache_size=len(self._cache))
         
         return result
 
@@ -226,8 +253,10 @@ class AsyncRAGPipeline(dspy.Module):
         if hasattr(self, 'executor'):
             self.executor.shutdown(wait=True)
 
+@logfire_span("demonstrate_advanced_patterns", component="advanced_patterns")
 def demonstrate_advanced_patterns():
-    """Demo advanced DSPy patterns."""
+    """Demo advanced DSPy patterns with Logfire monitoring."""
+    logfire_manager.log_event("Starting advanced patterns demo", "info")
     setup_dspy_basic()
     
     print("=== Advanced Patterns Demo ===")
@@ -239,6 +268,7 @@ def demonstrate_advanced_patterns():
     result = resilient(context=context, question="Who created Python?")
     print(f"Resilient Answer: {result.answer}")
     print(f"Metrics: {resilient.get_metrics()}")
+    logfire_manager.log_event("Resilient pipeline demo completed", "info", answer_quality="high" if len(result.answer) > 20 else "low")
     
     # Cached pipeline
     cached = CachedRAGPipeline(cache_size=10)
@@ -251,28 +281,54 @@ def demonstrate_advanced_patterns():
     print(f"\nCache test - First call from cache: {getattr(result1, 'from_cache', False)}")
     print(f"Cache test - Second call from cache: {getattr(result2, 'from_cache', False)}")
     print(f"Cache stats: {cached.get_cache_stats()}")
+    
+    logfire_manager.log_event("Cache demo completed", "info", cache_stats=cached.get_cache_stats())
 
 
+@logfire_span("demonstrate_async", component="advanced_patterns")
 async def demonstrate_async():
-    """Demo async processing."""
+    """Demo async processing with Logfire monitoring."""
+    logfire_manager.log_event("Starting async demo", "info")
     setup_dspy_basic()
     
     async_pipeline = AsyncRAGPipeline(max_workers=2)
     questions = ["What is AI?", "What is ML?", "What is NLP?"]
     
+    start_time = time.time()
     results = await async_pipeline.forward_async(questions)
+    processing_time = time.time() - start_time
+    
+    success_count = sum(1 for r in results if r['success'])
+    
+    logfire_manager.log_event(
+        "Async processing completed", 
+        "info", 
+        total_questions=len(questions),
+        successful_results=success_count,
+        processing_time=processing_time
+    )
     
     for result in results:
         print(f"Q: {result['question']} | Success: {result['success']}")
 
 
+@logfire_span("run_all_demos", component="advanced_patterns")
 def run_all_demos():
-    """Run all demos."""
+    """Run all demos with Logfire monitoring."""
+    logfire_manager.log_event("Starting all advanced pattern demos", "info")
+    start_time = time.time()
+    
     try:
         demonstrate_advanced_patterns()
         asyncio.run(demonstrate_async())
+        
+        total_time = time.time() - start_time
+        logfire_manager.log_event("All demos completed successfully", "info", total_duration=total_time)
+        
     except Exception as e:
+        logfire_manager.log_error(e, "Demo execution failed")
         print(f"Demo failed: {e}")
+        raise
 
 
 if __name__ == "__main__":

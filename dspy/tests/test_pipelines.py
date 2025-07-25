@@ -13,12 +13,27 @@ from src.pydantic_integration import AnalysisModule, QueryInput, ValidatedRAGPip
 from src.advanced_patterns import ResilientQAPipeline, CachedRAGPipeline, AsyncRAGPipeline
 from dspy.evaluate import Evaluate
 
+# Handle Logfire import for test logging
+try:
+    from src.logfire_setup import get_logfire_manager, logfire_span
+    logfire_manager = get_logfire_manager()
+    LOGFIRE_AVAILABLE = True
+except ImportError:
+    logfire_manager = None
+    LOGFIRE_AVAILABLE = False
+    def logfire_span(name, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 
 class TestBasicPipelines:
     """Test basic DSPy pipeline functionality"""
 
     def setup_method(self):
         """Setup test environment"""
+        if LOGFIRE_AVAILABLE:
+            logfire_manager.log_event("Setting up test environment", "info", test_class="TestBasicPipelines")
         try:
             self.lm = setup_dspy_basic()
             self.pipeline = BasicPipeline()
@@ -54,15 +69,22 @@ class TestBasicPipelines:
         assert hasattr(self.pipeline, 'qa')
         assert hasattr(self.pipeline, 'rag')
 
+    @logfire_span("test_answer_generation", component="tests")
     def test_answer_generation(self):
         """Test basic answer generation"""
         question = "What is artificial intelligence?"
+        if LOGFIRE_AVAILABLE:
+            logfire_manager.log_event("Testing answer generation", "info", question=question)
+        
         result = self.pipeline(question)
 
         assert hasattr(result, 'answer')
         assert isinstance(result.answer, str)
         assert len(result.answer.strip()) > 0
         assert len(result.answer) > 10  # Meaningful answer length
+        
+        if LOGFIRE_AVAILABLE:
+            logfire_manager.log_event("Answer generation test passed", "info", answer_length=len(result.answer))
 
     def test_answer_quality(self):
         """Test answer quality and relevance"""

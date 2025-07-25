@@ -1,9 +1,18 @@
 import dspy
-from pydantic import BaseModel, Field, field_validator, ValidationError
-from typing import List, Optional, Dict, Any
+import time
+from pydantic import BaseModel, Field, field_validator, ValidationError, ConfigDict
+from typing import List, Optional, Dict, Any, Union
 from dotenv import load_dotenv
 from enum import Enum
-from dspy_setup import setup_dspy_basic
+from datetime import datetime
+
+# Handle both module import and direct script execution
+try:
+    from .dspy_setup import setup_dspy_basic
+    from .logfire_setup import get_logfire_manager, logfire_span
+except ImportError:
+    from dspy_setup import setup_dspy_basic
+    from logfire_setup import get_logfire_manager, logfire_span
 
 # Load environment variables
 load_dotenv()
@@ -16,12 +25,27 @@ class SentimentEnum(str, Enum):
 
 
 class AnalysisResult(BaseModel):
-    """Pydantic model for structured text analysis results"""
+    """Pydantic model for structured text analysis results with Logfire integration"""
+    model_config = ConfigDict(
+        # Enable Logfire integration
+        plugin_settings={
+            'logfire': {'record': 'all'}
+        },
+        # Additional validation settings
+        validate_assignment=True,
+        str_strip_whitespace=True,
+        frozen=False
+    )
     sentiment: SentimentEnum = Field(..., description="Sentiment classification")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     key_themes: List[str] = Field(..., min_length=1, max_length=5, description="Main themes")
     summary: str = Field(..., min_length=10, max_length=200, description="Brief summary")
     word_count: int = Field(..., gt=0, description="Number of words in original text")
+    # Additional metadata fields
+    processing_time: Optional[float] = Field(None, description="Processing time in seconds")
+    model_used: Optional[str] = Field(None, description="Model used for analysis")
+    timestamp: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
+    request_id: Optional[str] = Field(None, description="Unique request identifier")
 
     @field_validator('key_themes')
     def validate_themes(cls, v):
@@ -50,28 +74,84 @@ class TextAnalysis(dspy.Signature):
 
 
 class AnalysisModule(dspy.Module):
-    """DSPy module that produces Pydantic-validated outputs"""
+    """DSPy module that produces Pydantic-validated outputs with Logfire observability"""
 
     def __init__(self):
         super().__init__()
         self.analyzer = dspy.ChainOfThought(TextAnalysis)
+        self.logfire_manager = get_logfire_manager()
 
-    def forward(self, text: str) -> AnalysisResult:
-        """Analyze text and return validated results"""
-        # Get raw prediction from DSPy
-        prediction = self.analyzer(text=text)
-
-        # Parse and validate the output using Pydantic
+    @logfire_span("text_analysis", component="analysis_module")
+    def forward(self, text: str, request_id: str = None) -> AnalysisResult:
+        """Analyze text and return validated results with full observability"""
+        start_time = time.time()
+        
+        # Generate request ID if not provided
+        if not request_id:
+            request_id = f"analysis_{int(time.time() * 1000)}"
+        
+        # Log analysis start
+        self.logfire_manager.log_event(
+            "Starting text analysis",
+            "info",
+            request_id=request_id,
+            text_length=len(text),
+            word_count=len(text.split())
+        )
+        
         try:
-            result_data = self._parse_analysis_output(prediction, text)
-            validated_result = AnalysisResult(**result_data)
+            # Get raw prediction from DSPy with span
+            with self.logfire_manager.span("dspy_prediction", request_id=request_id) as span:
+                prediction = self.analyzer(text=text)
+                if span:
+                    span.set_attribute("prediction_generated", True)
+
+            # Parse and validate the output using Pydantic
+            with self.logfire_manager.span("pydantic_validation", request_id=request_id) as span:
+                result_data = self._parse_analysis_output(prediction, text)
+                result_data.update({
+                    'processing_time': time.time() - start_time,
+                    'request_id': request_id,
+                    'model_used': getattr(prediction, '_model_name', 'unknown')
+                })
+                
+                validated_result = AnalysisResult(**result_data)
+                
+                if span:
+                    span.set_attribute("validation_successful", True)
+                    span.set_attribute("sentiment", validated_result.sentiment)
+                    span.set_attribute("confidence", validated_result.confidence)
+            
+            # Log successful completion
+            self.logfire_manager.log_event(
+                "Text analysis completed successfully",
+                "info",
+                request_id=request_id,
+                sentiment=validated_result.sentiment,
+                confidence=validated_result.confidence,
+                processing_time=validated_result.processing_time
+            )
+            
             return validated_result
+            
         except ValidationError as e:
             # Handle validation errors with fallback
-            return self._handle_validation_error(text, e)
+            self.logfire_manager.log_error(
+                e, 
+                "Pydantic validation failed",
+                request_id=request_id,
+                error_details=e.errors()
+            )
+            return self._handle_validation_error(text, e, request_id)
+            
         except Exception as e:
             # Handle other errors
-            return self._handle_general_error(text, e)
+            self.logfire_manager.log_error(
+                e,
+                "General analysis error", 
+                request_id=request_id
+            )
+            return self._handle_general_error(text, e, request_id)
 
     @staticmethod
     def _parse_analysis_output(prediction, original_text: str) -> Dict[str, Any]:
@@ -113,10 +193,15 @@ class AnalysisModule(dspy.Module):
             'word_count': len(original_text.split())
         }
 
-    @staticmethod
-    def _handle_validation_error(text: str, error: ValidationError) -> AnalysisResult:
-        """Handle Pydantic validation errors with safe fallback"""
-        print(f"Validation error: {error}")
+    def _handle_validation_error(self, text: str, error: ValidationError, request_id: str) -> AnalysisResult:
+        """Handle Pydantic validation errors with safe fallback and logging"""
+        self.logfire_manager.log_error(
+            error,
+            "Pydantic validation failed - using fallback",
+            request_id=request_id,
+            error_count=len(error.errors()),
+            fallback_used=True
+        )
 
         # Create safe fallback result
         return AnalysisResult(
@@ -124,20 +209,28 @@ class AnalysisModule(dspy.Module):
             confidence=0.5,
             key_themes=['general content'],
             summary=f"Text analysis with {len(text.split())} words",
-            word_count=len(text.split())
+            word_count=len(text.split()),
+            request_id=request_id,
+            model_used='fallback'
         )
 
-    @staticmethod
-    def _handle_general_error(text: str, error: Exception) -> AnalysisResult:
-        """Handle general errors with safe fallback"""
-        print(f"General error: {error}")
+    def _handle_general_error(self, text: str, error: Exception, request_id: str) -> AnalysisResult:
+        """Handle general errors with safe fallback and logging"""
+        self.logfire_manager.log_error(
+            error,
+            "General processing error - using fallback",
+            request_id=request_id,
+            fallback_used=True
+        )
 
         return AnalysisResult(
             sentiment=SentimentEnum.NEUTRAL,
             confidence=0.0,
             key_themes=['error processing'],
             summary="Unable to process text due to an error",
-            word_count=len(text.split())
+            word_count=len(text.split()),
+            request_id=request_id,
+            model_used='error_fallback'
         )
 
 

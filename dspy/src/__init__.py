@@ -17,6 +17,26 @@ from .basic_examples import BasicPipeline, RAGPipeline
 from .pydantic_integration import AnalysisModule, QueryInput, ValidatedRAGPipeline, AnalysisResult
 from .advanced_patterns import ResilientQAPipeline, CachedRAGPipeline, MonitoredDSPyModule
 
+# Logfire integration
+try:
+    from .logfire_setup import get_logfire_manager, initialize_logfire
+    from .monitoring import get_monitoring_manager
+    
+    # Initialize Logfire on package import
+    logfire_manager = get_logfire_manager()
+    monitoring_manager = get_monitoring_manager()
+    
+    # Log package initialization
+    logfire_manager.log_event("DSPy package initialized", "info", 
+                             version=__version__,
+                             logfire_enabled=True)
+    
+    LOGFIRE_AVAILABLE = True
+except ImportError:
+    logfire_manager = None
+    monitoring_manager = None
+    LOGFIRE_AVAILABLE = False
+
 # Utility functions
 try:
     from .util import load_sample_data, create_training_examples, simple_metric

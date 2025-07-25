@@ -11,14 +11,18 @@ numpy>=1.24.0
 datasets>=2.14.0
 
 # Validation and schema
-pydantic>=2.0.0
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
 jsonschema>=4.17.0
 
 # Environment management
 python-dotenv>=1.0.0
 
-# Debug and logging
+# Advanced observability and logging
+logfire>=0.28.0
+structlog>=23.2.0
 icecream>=2.1.0
+psutil<6.1.0,>=5.9.8
 
 # Development and testing
 pytest>=7.0.0

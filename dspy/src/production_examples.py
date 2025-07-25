@@ -6,9 +6,15 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, asdict
 from contextlib import contextmanager
 from dotenv import load_dotenv
-from advanced_patterns import MonitoredDSPyModule, CachedRAGPipeline
-from pydantic_integration import QueryInput, ValidatedRAGPipeline
-from dspy_setup import setup_dspy_basic
+# Handle both module import and direct script execution
+try:
+    from .advanced_patterns import MonitoredDSPyModule, CachedRAGPipeline
+    from .pydantic_integration import QueryInput, ValidatedRAGPipeline
+    from .dspy_setup import setup_dspy_basic
+except ImportError:
+    from advanced_patterns import MonitoredDSPyModule, CachedRAGPipeline
+    from pydantic_integration import QueryInput, ValidatedRAGPipeline
+    from dspy_setup import setup_dspy_basic
 
 # Load environment variables
 load_dotenv()
