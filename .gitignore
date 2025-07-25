@@ -136,3 +136,5 @@ ui-tests/playwright-report
 ui-tests/.yarn/*
 ui-tests/.pnp.*
 */.ipynb_checkpoints/norm-1D-checkpoint.ipynb
+.idea/*
+dspy/.env

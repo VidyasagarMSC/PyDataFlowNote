@@ -1,0 +1,73 @@
+{
+  "training_examples": [
+    {
+      "question": "What is artificial intelligence?",
+      "context": "Artificial intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think and learn like humans. These systems can perform tasks that typically require human cognitive abilities such as learning, reasoning, problem-solving, perception, and language understanding.",
+      "answer": "Artificial intelligence is the simulation of human intelligence in machines, enabling them to perform tasks that typically require human cognitive abilities like learning, reasoning, and problem-solving."
+    },
+    {
+      "question": "How does machine learning work?",
+      "context": "Machine learning is a subset of AI that uses algorithms to automatically learn and improve from experience without being explicitly programmed. It involves training models on data to make predictions or decisions by identifying patterns and relationships in the data.",
+      "answer": "Machine learning works by using algorithms that automatically learn patterns from data and improve their performance over time without explicit programming for each specific task."
+    },
+    {
+      "question": "What are neural networks?",
+      "context": "Neural networks are computing systems inspired by biological neural networks. They consist of interconnected nodes (neurons) organized in layers that process information. Each connection has a weight that adjusts during learning, allowing the network to recognize patterns and make predictions.",
+      "answer": "Neural networks are computational models inspired by the human brain, consisting of interconnected nodes organized in layers that process and transmit information to solve complex problems."
+    },
+    {
+      "question": "What is deep learning?",
+      "context": "Deep learning is a subset of machine learning that uses neural networks with multiple layers (deep neural networks) to model and understand complex patterns in data. It's particularly effective for tasks like image recognition, natural language processing, and speech recognition.",
+      "answer": "Deep learning is a subset of machine learning that uses multi-layered neural networks to automatically learn complex patterns from large amounts of data."
+    },
+    {
+      "question": "How does natural language processing work?",
+      "context": "Natural Language Processing (NLP) is a branch of AI that helps computers understand, interpret, and manipulate human language. It combines computational linguistics with statistical modeling and machine learning to enable computers to process and analyze natural language data.",
+      "answer": "Natural language processing combines computational linguistics with machine learning to enable computers to understand, interpret, and generate human language in a meaningful way."
+    }
+  ],
+  "test_examples": [
+    {
+      "question": "What is deep learning?",
+      "expected_topics": ["neural networks", "layers", "artificial intelligence", "machine learning", "patterns"]
+    },
+    {
+      "question": "How does natural language processing work?",
+      "expected_topics": ["language", "text", "processing", "understanding", "nlp", "computational"]
+    },
+    {
+      "question": "What are the applications of AI?",
+      "expected_topics": ["applications", "technology", "automation", "intelligence", "computer"]
+    },
+    {
+      "question": "What is supervised learning?",
+      "expected_topics": ["supervised", "learning", "training", "data", "labels", "algorithm"]
+    }
+  ],
+  "contexts": {
+    "ai_context": "Artificial intelligence encompasses various technologies including machine learning, natural language processing, computer vision, and robotics. AI systems can perform tasks that traditionally required human intelligence such as visual perception, speech recognition, decision-making, and language translation.",
+    "ml_context": "Machine learning includes supervised learning (with labeled data), unsupervised learning (finding patterns in unlabeled data), and reinforcement learning (learning through interaction with an environment). Common algorithms include linear regression, decision trees, neural networks, and support vector machines.",
+    "programming_context": "Programming languages like Python, R, and Julia are commonly used for AI and machine learning development. Python is particularly popular due to libraries like TensorFlow, PyTorch, scikit-learn, and pandas that provide powerful tools for data science and machine learning.",
+    "dspy_context": "DSPy is a framework for programming language models that provides signatures for defining task interfaces, modules for building pipelines, and optimizers for automatically improving prompts and few-shot examples. It enables more systematic and reliable development of LM-based applications."
+  },
+  "evaluation_metrics": {
+    "simple_accuracy": "Checks if answer length is greater than 10 characters",
+    "topic_relevance": "Verifies if answer contains expected topic keywords", 
+    "context_usage": "Ensures answer is based on provided context",
+    "sentiment_accuracy": "For sentiment analysis tasks, checks if predicted sentiment matches expected"
+  },
+  "optimization_examples": [
+    {
+      "question": "What is AI?",
+      "answer": "AI is artificial intelligence - machines simulating human intelligence to perform cognitive tasks."
+    },
+    {
+      "question": "What is ML?", 
+      "answer": "ML is machine learning - algorithms that learn from data to make predictions or decisions."
+    },
+    {
+      "question": "What is NLP?",
+      "answer": "NLP is natural language processing - AI technology for understanding and generating human language."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Core DSPy framework
+dspy-ai>=2.4.0
+
+# LLM integrations
+openai>=1.0.0
+anthropic>=0.20.0
+
+# Data processing and utilities
+pandas>=2.0.0
+numpy>=1.24.0
+datasets>=2.14.0
+
+# Validation and schema
+pydantic>=2.0.0
+jsonschema>=4.17.0
+
+# Environment management
+python-dotenv>=1.0.0
+
+# Debug and logging
+icecream>=2.1.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+pytest-cov>=4.0.0
+
+# Optional: For advanced features
+# faiss-cpu>=1.7.0
+# chromadb>=0.4.0
+# langchain>=0.1.0
+
+# Documentation
+# mkdocs>=1.5.0
+# mkdocs-material>=9.0.0
